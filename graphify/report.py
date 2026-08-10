@@ -2,6 +2,7 @@
 from __future__ import annotations
 import re
 from datetime import date
+from pathlib import Path
 import networkx as nx
 
 
@@ -100,8 +101,9 @@ def generate(
     inf_scores = [d.get("confidence_score", 0.5) for _, _, d in inf_edges]
     inf_avg = round(sum(inf_scores) / len(inf_scores), 2) if inf_scores else None
 
+    project_label = Path(str(root)).resolve().name or Path(str(root)).name or "project"
     lines = [
-        f"# Graph Report - {root}  ({today})",
+        f"# Graph Report - {project_label}  ({today})",
         "",
         "## Corpus Check",
     ]

@@ -1,7 +1,9 @@
 """Tests for hooks.py - git hook install/uninstall."""
+import json
 import os
 import shutil
 import subprocess
+import sys
 from types import SimpleNamespace
 from pathlib import Path
 import pytest
@@ -200,8 +202,8 @@ def test_install_fallback_is_loud_not_silent(tmp_path):
     )
 
 
-def test_hook_check_no_additionalContext(tmp_path):
-    """graphify hook-check must not emit additionalContext — Codex Desktop rejects it."""
+def test_hook_check_session_start_adds_graph_context(tmp_path):
+    """Codex SessionStart receives graph guidance when a graph exists."""
     import sys
     out = tmp_path / "graphify-out"
     out.mkdir()
@@ -210,13 +212,55 @@ def test_hook_check_no_additionalContext(tmp_path):
     result = subprocess.run(
         [sys.executable, "-m", "graphify", "hook-check"],
         cwd=tmp_path,
+        input=json.dumps({"hook_event_name": "SessionStart", "source": "startup"}),
         capture_output=True,
         text=True,
     )
 
     assert result.returncode == 0
-    assert result.stdout == ""
+    payload = json.loads(result.stdout)
+    assert payload["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+    assert "graphify query" in payload["hookSpecificOutput"]["additionalContext"]
     assert result.stderr == ""
+
+
+def test_hook_check_session_start_reports_pending_docs(tmp_path):
+    out = tmp_path / "graphify-out"
+    out.mkdir()
+    (out / "graph.json").write_text("{}", encoding="utf-8")
+    (out / "needs_update").write_text("1", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "graphify", "hook-check"],
+        cwd=tmp_path,
+        input=json.dumps({"hook_event_name": "SessionStart", "source": "resume"}),
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert "$graphify . --update" in payload["hookSpecificOutput"]["additionalContext"]
+
+
+def test_hook_check_apply_patch_reminds_refresh(tmp_path):
+    out = tmp_path / "graphify-out"
+    out.mkdir()
+    (out / "graph.json").write_text("{}", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "graphify", "hook-check"],
+        cwd=tmp_path,
+        input=json.dumps({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "apply_patch",
+            "tool_input": {"command": "*** Begin Patch"},
+        }),
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert "graphify update ." in payload["hookSpecificOutput"]["additionalContext"]
 
 
 # ── #1161: background rebuild must not rely on nohup (missing on Git for Windows) ──

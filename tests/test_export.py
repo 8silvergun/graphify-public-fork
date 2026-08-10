@@ -159,6 +159,17 @@ def test_to_html_contains_visjs():
         assert "vis-network" in content
 
 
+def test_to_html_title_does_not_leak_absolute_output_path(tmp_path):
+    G = make_graph()
+    communities = cluster(G)
+    out = tmp_path / "private-checkout" / "graph.html"
+    out.parent.mkdir()
+    to_html(G, communities, str(out))
+    content = out.read_text()
+    assert "<title>graphify - graph</title>" in content
+    assert str(tmp_path) not in content
+
+
 def test_to_html_neighbor_links_have_no_inline_onclick_xss():
     """#1838: neighbor links dropped an unescaped JSON.stringify(nid) into a
     quoted inline onclick — which broke every link (the value's own quotes

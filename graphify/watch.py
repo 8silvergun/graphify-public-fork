@@ -1765,7 +1765,8 @@ def check_update(watch_path: Path) -> bool:
     flag = Path(watch_path) / _GRAPHIFY_OUT / "needs_update"
     if flag.exists():
         print(f"[graphify check-update] Pending non-code changes in {watch_path}.")
-        print("[graphify check-update] Run `/graphify --update` to apply semantic re-extraction.")
+        print("[graphify check-update] Run your graphify skill with `--update` "
+              "(Codex: `$graphify . --update`; other assistants: `/graphify . --update`).")
     return True
 
 
@@ -1776,7 +1777,8 @@ def _notify_only(watch_path: Path) -> None:
     flag.write_text("1", encoding="utf-8")
     print(f"\n[graphify watch] New or changed files detected in {watch_path}")
     print("[graphify watch] Non-code files changed - semantic re-extraction requires LLM.")
-    print("[graphify watch] Run `/graphify --update` in Claude Code to update the graph.")
+    print("[graphify watch] Run your graphify skill with `--update` "
+          "(Codex: `$graphify . --update`; other assistants: `/graphify . --update`).")
     print(f"[graphify watch] Flag written to {flag}")
 
 

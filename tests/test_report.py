@@ -24,6 +24,14 @@ def test_report_contains_header():
     report = generate(G, communities, cohesion, labels, gods, surprises, detection, tokens, "./project")
     assert "# Graph Report" in report
 
+
+def test_report_header_does_not_leak_absolute_checkout_path(tmp_path):
+    G, communities, cohesion, labels, gods, surprises, detection, tokens = make_inputs()
+    project = tmp_path / "portable-project"
+    report = generate(G, communities, cohesion, labels, gods, surprises, detection, tokens, str(project))
+    assert "# Graph Report - portable-project" in report
+    assert str(tmp_path) not in report
+
 def test_report_contains_corpus_check():
     G, communities, cohesion, labels, gods, surprises, detection, tokens = make_inputs()
     report = generate(G, communities, cohesion, labels, gods, surprises, detection, tokens, "./project")

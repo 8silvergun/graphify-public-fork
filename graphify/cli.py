@@ -579,6 +579,64 @@ def _mark_session_denied(session_id: str) -> bool:
         return False
 
 
+def _run_codex_hook_check() -> None:
+    """Emit current Codex hook context for an installed project graph.
+
+    Codex supports ``additionalContext`` for SessionStart and PreToolUse hooks.
+    Fail open on malformed input or missing graph output so this hook can never
+    interrupt an unrelated tool call.
+    """
+    from graphify.paths import out_path
+
+    try:
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8", "replace"))
+        if not isinstance(payload, dict) or not out_path("graph.json").is_file():
+            return
+        event = str(payload.get("hook_event_name") or "")
+        tool_name = str(payload.get("tool_name") or "")
+        tool_input = payload.get("tool_input")
+        tool_input = tool_input if isinstance(tool_input, dict) else {}
+
+        if event == "SessionStart":
+            if out_path("needs_update").is_file():
+                message = (
+                    "The graphify knowledge graph has pending document changes. "
+                    "Run `$graphify . --update` before relying on semantic document results."
+                )
+            else:
+                message = (
+                    "A graphify knowledge graph exists. For codebase questions, orient with "
+                    "`graphify query`, `graphify explain`, or `graphify path` before broad raw-file search."
+                )
+        elif event == "PreToolUse" and tool_name in {"apply_patch", "Edit", "Write"}:
+            message = (
+                "This edit may make graphify stale. After code edits run `graphify update .`; "
+                "after document/PDF/image edits run `$graphify . --update`."
+            )
+        elif event == "PreToolUse" and tool_name == "Bash":
+            command = str(tool_input.get("command") or "")
+            if not any(token in command for token in (
+                "grep", "ripgrep", "rg ", "find ", "fd ", "ack ", "ag ",
+            )):
+                return
+            message = (
+                "A graphify knowledge graph exists. Run `graphify query` first for orientation, "
+                "then use raw search for exact implementation details."
+            )
+        else:
+            return
+
+        result = {
+            "hookSpecificOutput": {
+                "hookEventName": event,
+                "additionalContext": message,
+            }
+        }
+        sys.stdout.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+    except Exception:
+        return
+
+
 def _run_hook_guard(kind: str, strict: bool = False) -> None:
     """Shell-agnostic PreToolUse guard (#522).
 
@@ -2131,9 +2189,7 @@ def dispatch_command(cmd: str) -> None:
             sys.exit(1)
 
     elif cmd == "hook-check":
-        # Codex Desktop rejects hookSpecificOutput.additionalContext on PreToolUse.
-        # Keep this as a cross-platform no-op so installed hooks never break Bash
-        # tool calls. Graph guidance reaches the agent via AGENTS.md / skill instead.
+        _run_codex_hook_check()
         sys.exit(0)
     elif cmd == "hook-guard":
         # Shell-agnostic Claude/Codebuddy PreToolUse guard (#522). Replaces the old

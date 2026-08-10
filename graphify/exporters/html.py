@@ -519,7 +519,9 @@ def to_html(
     edges_json = _js_safe(vis_edges)
     legend_json = _js_safe(legend_data)
     hyperedges_json = _js_safe(getattr(G, "graph", {}).get("hyperedges", []))
-    title = _html.escape(sanitize_label(str(output_path)))
+    # Generated HTML is commonly committed with graph.json. Keep the title
+    # portable and avoid leaking a developer's absolute checkout path.
+    title = "graph"
     stats = f"{G.number_of_nodes()} nodes &middot; {G.number_of_edges()} edges &middot; {len(communities)} communities"
 
     html = f"""<!DOCTYPE html>

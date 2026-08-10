@@ -1426,30 +1426,37 @@ def _install_codex_hook(project_dir: Path) -> None:
     existing = _read_settings_for_merge(hooks_path)
 
     graphify_exe = _resolve_graphify_exe()
+    command_hook = {"type": "command", "command": f"{graphify_exe} hook-check"}
     hook_entry = {
         "hooks": {
+            "SessionStart": [
+                {
+                    "matcher": "startup|resume|clear|compact",
+                    "hooks": [command_hook],
+                }
+            ],
             "PreToolUse": [
                 {
-                    "matcher": "Bash",
-                    "hooks": [{"type": "command", "command": f"{graphify_exe} hook-check"}],
+                    "matcher": "Bash|apply_patch|Edit|Write",
+                    "hooks": [command_hook],
                 }
-            ]
+            ],
         }
     }
 
     hooks = existing.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         _refuse_to_modify(hooks_path)
-    pre_tool = hooks.setdefault("PreToolUse", [])
-    if not isinstance(pre_tool, list):
-        _refuse_to_modify(hooks_path)
-    hooks["PreToolUse"] = [h for h in pre_tool if "graphify" not in str(h)]
-    hooks["PreToolUse"].extend(hook_entry["hooks"]["PreToolUse"])
+    for event in ("SessionStart", "PreToolUse"):
+        entries = hooks.setdefault(event, [])
+        if not isinstance(entries, list):
+            _refuse_to_modify(hooks_path)
+        hooks[event] = [entry for entry in entries if "graphify" not in str(entry)]
+        hooks[event].extend(hook_entry["hooks"][event])
     _write_settings_with_backup(hooks_path, existing)
     print(
-        f"  .codex/hooks.json  ->  PreToolUse hook registered ({graphify_exe} hook-check"
-        " - intentional no-op; Codex Desktop rejects additionalContext on PreToolUse,"
-        " so graph guidance comes from AGENTS.md)"
+        f"  .codex/hooks.json  ->  SessionStart + PreToolUse hooks registered "
+        f"({graphify_exe} hook-check)"
     )
 
 
@@ -1462,11 +1469,15 @@ def _uninstall_codex_hook(project_dir: Path) -> None:
         existing = json.loads(hooks_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return
-    pre_tool = existing.get("hooks", {}).get("PreToolUse", [])
-    filtered = [h for h in pre_tool if "graphify" not in str(h)]
-    existing["hooks"]["PreToolUse"] = filtered
+    hooks = existing.get("hooks", {})
+    if not isinstance(hooks, dict):
+        return
+    for event in ("SessionStart", "PreToolUse"):
+        entries = hooks.get(event, [])
+        if isinstance(entries, list):
+            hooks[event] = [entry for entry in entries if "graphify" not in str(entry)]
     hooks_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    print(f"  .codex/hooks.json  ->  PreToolUse hook removed")
+    print("  .codex/hooks.json  ->  SessionStart + PreToolUse hooks removed")
 def _agents_install(project_dir: Path, platform: str) -> None:
     """Write the graphify section to the local AGENTS.md for always-on platforms."""
     target = (project_dir or Path(".")) / "AGENTS.md"

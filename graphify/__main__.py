@@ -251,8 +251,8 @@ def _version_tuple(version: str) -> tuple[int, ...]:
 # silently vanished — users had to invoke /graphify by hand (#522). Moving the
 # logic into a Python subcommand invoked via an absolute exe path makes the hook
 # parse identically under sh, cmd.exe and PowerShell. Claude Code accepts
-# additionalContext on PreToolUse (Codex Desktop does not — that path stays a
-# no-op via `hook-check`). Compact separators keep the payload byte-for-byte the
+# additionalContext on PreToolUse. Codex uses the same portable payload shape
+# through `hook-check`. Compact separators keep the payload byte-for-byte the
 # same JSON the old `echo` emitted.
 
 

@@ -1142,9 +1142,8 @@ def test_codex_hook_command_is_a_real_cli_subcommand(tmp_path):
     """#2165: the PreToolUse command in .codex/hooks.json must be a command the CLI
     dispatches, so a renamed subcommand can never leave a permanently dead hook.
 
-    `hook-check` is intentionally a no-op on Codex (Codex Desktop rejects
-    additionalContext on PreToolUse), but it must still be a *recognized* command --
-    an unrecognized one exits non-zero and would break every Bash tool call.
+    `hook-check` supplies model-visible graph context on supported Codex hooks,
+    and it must be a recognized command so hook execution cannot break tool calls.
     """
     import json
 
@@ -1152,6 +1151,9 @@ def test_codex_hook_command_is_a_real_cli_subcommand(tmp_path):
 
     _install_codex_hook(tmp_path)
     hooks = json.loads((tmp_path / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+
+    assert hooks["hooks"]["SessionStart"][0]["matcher"] == "startup|resume|clear|compact"
+    assert hooks["hooks"]["PreToolUse"][0]["matcher"] == "Bash|apply_patch|Edit|Write"
 
     entries = [
         h
