@@ -313,6 +313,23 @@ This writes a small config file that tells your assistant to consult the knowled
 
 **Codex** writes persistent graph guidance to `AGENTS.md` and registers `SessionStart` plus `PreToolUse` hooks in `.codex/hooks.json` (`graphify hook-check`). Session start reminds Codex to query an existing graph and surfaces pending document refreshes; search and edit tool calls receive concise `additionalContext` nudges. The hook fails open when no graph exists or its input is malformed, while `AGENTS.md` remains the durable project-level instruction source.
 
+### How the Codex integration works
+
+The two installed files have separate jobs:
+
+- `AGENTS.md` is the durable policy. It tells every Codex session in the repository to prefer `graphify query`, `graphify path`, and `graphify explain` over broad source scans when `graphify-out/graph.json` exists.
+- `.codex/hooks.json` supplies timely reminders. `SessionStart` runs on startup, resume, clear, and compaction. `PreToolUse` runs before shell searches and file-editing tools.
+
+The hook only adds context; it does not block a command or modify source files. It deliberately exits without output when the graph does not exist, the event is unrelated, or the input is malformed. A missing or broken Graphify installation therefore does not prevent normal Codex work.
+
+Graph freshness is explicit:
+
+- Code edits are refreshed with `graphify update .`. This rebuilds the AST-derived graph locally and does not require an LLM API.
+- Document, PDF, and image changes use `$graphify . --update`, because semantic document extraction is handled by the Graphify skill workflow.
+- The hook reminds Codex after edits but does not silently rebuild during every tool call. To rebuild automatically after commits and checkouts, run `graphify hook install` in the repository.
+
+For a shared repository, commit `AGENTS.md` and `.codex/hooks.json` with the portable command `graphify hook-check`. Each contributor must install the `graphify` executable on `PATH`; `uv tool install graphifyy` is the recommended method. After changing the executable location or reinstalling Graphify, run `graphify codex install` again for a local absolute-path configuration, or keep the committed portable command.
+
 **Kilo Code** installs the Graphify skill to `~/.config/kilo/skills/graphify/SKILL.md` and a native `/graphify` command to `~/.config/kilo/command/graphify.md`. `graphify kilo install` also writes `AGENTS.md` plus a native `tool.execute.before` plugin (`.kilo/plugins/graphify.js` + `.kilo/kilo.json` or `.kilo/kilo.jsonc` registration) so Kilo gets the same always-on graph reminder behavior through native `.kilo` config.
 
 **Cursor** writes `.cursor/rules/graphify.mdc` with `alwaysApply: true`, so Cursor includes it in every conversation automatically, no hook needed.
