@@ -60,9 +60,15 @@ jobs:
           files: graphify-self-graph.tar.gz
 
       - name: Upload as workflow artifact (for workflow_dispatch runs)
+        id: upload_graph_artifact
         if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: graphify-self-graph
           path: graphify-self-graph.tar.gz
           retention-days: 3
+
+      - name: Warn when workflow artifact upload is unavailable
+        if: github.event_name == 'workflow_dispatch' && steps.upload_graph_artifact.outcome == 'failure'
+        run: echo "::warning::Graph generation succeeded, but artifact upload is unavailable (for example, storage quota)."
