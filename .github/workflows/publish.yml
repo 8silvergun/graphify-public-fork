@@ -16,6 +16,10 @@ on:
   # Manual re-run escape hatch (still requires the release tag to be checked out).
   workflow_dispatch:
 
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
